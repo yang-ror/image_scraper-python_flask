@@ -1,0 +1,533 @@
+<!-- =============================================================================
+ scrapImg.html
+ project: Image Scraper
+ author: Zifan Yang
+ date created: 2021-01-05
+ last modified: 2021-01-15
+============================================================================= -->
+<!doctype html>
+<html lang="en">
+    <head>
+        <title>{{ title }}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0", charset=utf-8>
+
+        <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+        
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+        <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js" integrity="sha384-q2kxQ16AaE6UbzuKqyBE9/u/KzioAlnx2maXQHiDX9d4/zp8Ok3f+M7DPm+Ib6IU" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.min.js" integrity="sha384-pQQkAEnwaBkjpqZ8RU1fF1AKtTcHJwFl3pblpTlHXybJjHpMYo79HY3hIi4NKxyj" crossorigin="anonymous"></script>
+        
+        <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.5.0/jszip.min.js" integrity="sha512-y3o0Z5TJF1UsKjs/jS2CDkeHN538bWsftxO9nctODL5W40nyXIbs0Pgyu7//icrQY9m6475gLaVr39i/uh/nLA==" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip-utils/0.1.0/jszip-utils.min.js" integrity="sha512-3WaCYjK/lQuL0dVIRt1thLXr84Z/4Yppka6u40yEJT1QulYm9pCxguF6r8V84ndP5K03koI9hV1+zo/bUbgMtA==" crossorigin="anonymous"></script> -->
+        <style>
+            body{
+                background-color: rgb(39, 39, 39);
+            }
+
+            #control_panel{
+                width: 100%;
+                /* height: 200px; */
+                background-color: rgb(59, 59, 59);
+                margin-bottom: 10px;
+                color: rgb(199, 199, 199);
+                text-align: center;
+            }
+
+            #title{
+                margin-left: 5px;
+            }
+
+            #hide_img_smaller_than{
+                width: 35px;
+                background-color: rgb(199, 199, 199);
+            }
+
+            .filters{
+                display: inline-block;
+            }
+
+            #format_select_div{
+                margin-left: 25px;
+            }
+
+            #filter-switch{
+                margin-left: 25px;
+            }
+
+            #image_selection_div{
+                width: 100%;
+            }
+
+            #select_instruction{
+                margin-left: 25px;
+            }
+
+            #download_button_div{
+                width: 100%;
+            }
+
+            .download_button_container{
+                width: 49%;
+                display: inline-block;
+                text-align: center;
+            }
+
+            .image_div{
+                /* width: 47%;
+                height: 100%; */
+                overflow-y: auto;
+                display: inline-block;
+                vertical-align:top;
+                /* background-color: rgb(59, 59, 59); */
+            }
+
+            #unselected_image_div{
+                background-color: rgb(59, 59, 59);
+            }
+
+            #selected_image_div{
+                background-color: rgb(79, 79, 79);
+            }
+
+            .scraped_image_containers{
+                width: 200px;
+                height: 200px;
+                display: inline-block;
+                background-position: center;
+                background-repeat: no-repeat;
+                background-size: cover;
+            }
+
+            .download_buttons{
+                font-size: 1.5em;
+            }
+
+            .scraped_image_containers:hover{
+                filter: blur(3px);
+                filter: brightness(25%);
+            }
+
+            .multi_selecting{
+                filter: blur(3px);
+                filter: brightness(50%);
+            }
+
+            .scraped_images{
+                display: none;
+            }
+
+            /* .button_container{
+                width: 100%;
+                height: 100%;
+            }
+
+            .button_container:hover{
+                background-color: rgb(39, 39, 39, 0.5);
+            } */
+        </style>
+
+        <script>
+            var image_list = [];
+            var multiSelecting = false;
+            var multiSelectStartWith = -1;
+            var multiSelectIn = "";
+
+            $( document ).ready(function() {
+                //construct the images and its container to an object array
+                for(let i = 1; i <= $(".scraped_images").length; i++){
+                    let imageObj = {
+                        'id': i,
+                        'imageElement': $("#scraped_img_" + i),
+                        'unselected_imageContainer': $("#unselected_image_container_" + i),
+                        'selected_imageContainer': $("#selected_image_container_" + i),
+                        'hide_by_size': false,
+                        'hide_by_format': false,
+                        'selected': false
+                    };
+                    imageObj.selected_imageContainer.hide();
+                    image_list.push(imageObj);
+                }
+
+                //hide small images after load compute, may need to adjust the time based on the client slide's network performance
+                setTimeout(() => {
+                    hideSmallImages(50); 
+                }, 500);
+
+                addImageListener();
+                addButtonListener();
+            });
+
+            //compare the width or height(whichever is smaller) to the target number of pictures, download all would not include these images.
+            function hideSmallImages(size){
+                for(let i = 1; i <= image_list.length; i++){
+                    let img = image_list[i-1].imageElement;
+                    if(img.height() < size || img.width() < size){
+                        if(image_list[i-1].hide_by_format == false){
+                            image_list[i-1].unselected_imageContainer.hide();
+                        }
+                        image_list[i-1].hide_by_size = true;
+                    }
+                }
+            }
+
+            //add listener to the image containers for single-select and move over effects
+            function addImageListener(){
+                $(".unselected_image_containers").click((evt)=>{
+                    idOfClickedEle = getIdFromElementId(evt.target.id);
+                    image_list[idOfClickedEle-1].unselected_imageContainer.hide();
+                    image_list[idOfClickedEle-1].selected_imageContainer.show();
+                    image_list[idOfClickedEle-1].selected = true;
+                });
+
+                $(".selected_image_containers").click((evt)=>{
+                    idOfClickedEle = getIdFromElementId(evt.target.id);
+                    image_list[idOfClickedEle-1].unselected_imageContainer.show();
+                    image_list[idOfClickedEle-1].selected_imageContainer.hide();
+                    image_list[idOfClickedEle-1].selected = false;
+                });
+            }
+
+            //add listeners to the button on the top control panel bar
+            function addButtonListener(){
+                $("#hide_small_img_chk").click((evt)=>{
+                    if($("#hide_small_img_chk").prop("checked") == true){
+                        var sizeOfImg = $("#hide_img_smaller_than").val();
+                        hideSmallImages(sizeOfImg);
+                    }
+                    else{
+                        for(let i = 1; i <= image_list.length; i++){
+                            if(image_list[i-1].selected == false){
+                                if(image_list[i-1].hide_by_format == false){
+                                    image_list[i-1].unselected_imageContainer.show();
+                                }
+                                image_list[i-1].hide_by_size = false;
+                            }
+                        }
+                    }
+                });
+
+                $("#show_png_chk").click((evt)=>{
+                    if($("#show_png_chk").prop("checked") == true){
+                        showOrHideAFormat(true, 'png');
+                    }
+                    else{
+                        showOrHideAFormat(false, 'png');
+                    }
+                });
+
+                $("#show_jpg_chk").click((evt)=>{
+                    if($("#show_jpg_chk").prop("checked") == true){
+                        showOrHideAFormat(true, 'jpg');
+                    }
+                    else{
+                        showOrHideAFormat(false, 'jpg');
+                    }
+                });
+
+                $("#show_jpeg_chk").click((evt)=>{
+                    if($("#show_jpeg_chk").prop("checked") == true){
+                        showOrHideAFormat(true, 'jpeg');
+                    }
+                    else{
+                        showOrHideAFormat(false, 'jpeg');
+                    }
+                });
+
+                $("#show_gif_chk").click((evt)=>{
+                    if($("#show_gif_chk").prop("checked") == true){
+                        showOrHideAFormat(true, 'gif');
+                    }
+                    else{
+                        showOrHideAFormat(false, 'gif');
+                    }
+                });
+
+                $("#download_all_button").click(()=>{
+                    var imagesToDL = [];
+                    for(let i = 0; i < image_list.length; i++){
+                        if(image_list[i].hide_by_size == false && image_list[i].hide_by_format == false){
+                            imagesToDL.push(image_list[i].imageElement.attr('src'));
+                        }
+                    }
+                    downloadImage(imagesToDL);
+                });
+
+                $("#download_selected_button").click(()=>{
+                    var imagesToDL = [];
+                    for(let i = 0; i < image_list.length; i++){
+                        if(image_list[i].hide_by_size == false && 
+                        image_list[i].hide_by_format == false && 
+                        image_list[i].selected == true){
+                            imagesToDL.push(image_list[i].imageElement.attr('src'));
+                        }
+                    }
+                    downloadImage(imagesToDL);
+                });
+            }
+
+            function getIdFromElementId(id){
+                var indexOfUnderS = id.lastIndexOf('_');
+                return id.substring(indexOfUnderS+1, id.length);
+            }
+
+            function showOrHideAFormat(show, format){
+                for(let i = 1; i <= image_list.length; i++){
+                    if(image_list[i-1].selected == false){
+                        let img = image_list[i-1].imageElement;
+                        if(getFormatOfImg(img.prop("src")) == format){
+                            if(image_list[i-1].selected == false){
+                                if(show){
+                                    if(image_list[i-1].hide_by_size == false){
+                                        image_list[i-1].unselected_imageContainer.show();
+                                    }
+                                    image_list[i-1].hide_by_format = false;
+                                }
+                                else{
+                                    if(image_list[i-1].hide_by_size == false){
+                                        image_list[i-1].unselected_imageContainer.hide();
+                                    }
+                                    image_list[i-1].hide_by_format = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            function getFormatOfImg(src){
+                var indexOfUnderS = src.lastIndexOf('.');
+                return src.substring(indexOfUnderS+1, src.length);
+            }
+
+            //configure right click to multi-select
+            $(document).bind("contextmenu", (evt)=> {
+                evt.preventDefault();
+                var targetId = evt.target.id;
+                var idOfClickedEle = getIdFromElementId(targetId);
+                if(multiSelecting == false){
+                    if(targetId.startsWith("unselected")){
+                        multiSelectIn = "unselected";
+                    }
+                    else if(targetId.startsWith("selected")){
+                        multiSelectIn = "selected";
+                    }
+                    multiSelecting = true;
+                    multiSelectStartWith = idOfClickedEle;
+                    beginMultiSelect(idOfClickedEle);
+                }
+                else{
+                    multiSelecting = false;
+                    stopMultiSelect(idOfClickedEle);
+                }
+            });
+
+            function beginMultiSelect(id){
+                var classSelector = "";
+                var elementSelector ="";
+                
+                if(multiSelectIn == "unselected"){
+                    classSelector = ".unselected_image_containers";
+                    elementSelector = "#unselected_image_container_"
+                }
+                else if(multiSelectIn == "selected"){
+                    classSelector = ".selected_image_containers";
+                    elementSelector = "#selected_image_container_"
+                }
+
+                $(classSelector).unbind("click");
+                $(classSelector).mouseover((evt)=>{
+                    let currentTargetId = getIdFromElementId(evt.target.id);
+                    var loopStart;
+                    var loopEnd;
+                    
+                    if(parseInt(currentTargetId) > parseInt(id)){
+                        loopStart = id;
+                        loopEnd = currentTargetId;
+                    }
+                    else if(parseInt(currentTargetId) < parseInt(id)){
+                        loopStart = currentTargetId;
+                        loopEnd = id;
+                    }
+                    else{
+                        loopStart = id;
+                        loopEnd = id;
+                    }
+
+                    for(let i = 1; i <= image_list.length; i++){
+                        $(elementSelector + i).removeClass("multi_selecting");
+                        if(i >= loopStart && i <= loopEnd){
+                            $(elementSelector + i).addClass("multi_selecting");
+                        }
+                    }
+                });
+
+                $(classSelector).click((evt)=>{
+                    var targetId = evt.target.id;
+                    var idOfClickedEle = getIdFromElementId(targetId);
+                    multiSelecting = false;
+                    stopMultiSelect(idOfClickedEle);
+                });
+            }
+
+            function stopMultiSelect(id){
+                if(multiSelectIn == "unselected"){
+                    classSelector = ".unselected_image_containers";
+                }
+                else if(multiSelectIn == "selected"){
+                    classSelector = ".selected_image_containers";
+                }
+
+                $(classSelector).unbind("click");
+                $(classSelector).unbind("mouseover");
+                $(classSelector).removeClass("multi_selecting");
+
+                if(parseInt(multiSelectStartWith) > parseInt(id)){
+                    loopStart = id;
+                    loopEnd = multiSelectStartWith;
+                }
+                else if(parseInt(multiSelectStartWith) < parseInt(id)){
+                    loopStart = multiSelectStartWith;
+                    loopEnd = id;
+                }
+                else{
+                    loopStart = id;
+                    loopEnd = id;
+                }
+                
+                for(let i = 0; i < image_list.length; i++){
+                    if(i >= loopStart-1 && i <= loopEnd-1 && 
+                    image_list[i].hide_by_format == false && 
+                    image_list[i].hide_by_size == false){
+                        if(multiSelectIn == "unselected"){
+                            image_list[i].selected = true;
+                            image_list[i].unselected_imageContainer.hide();
+                            image_list[i].selected_imageContainer.show();
+                        }
+                        else if(multiSelectIn == "selected"){
+                            image_list[i].selected = false;
+                            image_list[i].unselected_imageContainer.show();
+                            image_list[i].selected_imageContainer.hide();
+                        }
+                    }
+                }
+                multiSelectStartWith = -1;
+                multiSelectIn = "";
+                addImageListener();
+            }
+
+            //send a list of selected url to backend for download and compress
+            function downloadImage(urlList){
+                $.ajax({
+                    type: "POST",
+                    url: "./downloadImg",
+                    data: JSON.stringify(urlList),
+                    contentType: 'application/json',
+                    complete: function(data){
+                        window.location.replace(data.responseText);
+                    }
+                });
+
+
+                //Client side compress
+
+                // var zip = new JSZip();
+                // var title = $(document).find("title").text();
+                // var fileNameFilter = ['/', '\\', ':', '?', '*', '"', '<', '>', '|'];
+                
+                // for(let i = 0; i < fileNameFilter.length; i++){
+                //     title.replace(fileNameFilter[i], '');
+                // }
+                
+                // var zipFilename = title + ".zip";
+                // var urls = urlList;
+
+                // urls.forEach(function(url) {
+                //     JSZipUtils.getBinaryContent(url, function(err, data) {
+                //         if (err) {
+                //             throw err;
+                //         }
+                //         zip.file(url, data, {
+                //             binary: true
+                //         });
+                        
+                //         count++;
+
+                //         if(count == urls.length){
+                //             zip.generateAsync({
+                //                     type: 'blob'
+                //                 }).then(function(content) {
+                //                     saveAs(content, name);
+                //                 });
+                //         }
+                //     });
+                // });
+            }
+
+        </script>
+    </head>
+
+    <body>
+        <div id="control_panel" class="content">
+            <br>
+            <h2 id="title">Scrapped {{ image_urls|length }} images from {{ title }}</h2>
+            <br>
+            <br>
+            <div id="filter_row">
+                <div id="hide_small_img_div" class="filters">
+                    <input class="form-check-input" type="checkbox" id="hide_small_img_chk" checked>
+                    <label>Hide pictures smaller than</label>
+                    <input type="text" id="hide_img_smaller_than" value="50">
+                    <label>pixels</label>
+                </div>
+                <div id="format_select_div" class="filters">
+                    <label>Show only: </label>
+                    <input class="form-check-input" type="checkbox" id="show_png_chk" checked>
+                    <label class="filter-label">.png</label>
+                    <input class="form-check-input" type="checkbox" id="show_jpg_chk" checked>
+                    <label class="filter-label">.jpg</label>
+                    <input class="form-check-input" type="checkbox" id="show_jpeg_chk" checked>
+                    <label class="filter-label">.jpeg</label>
+                    <input class="form-check-input" type="checkbox" id="show_gif_chk" checked>
+                    <label class="filter-label">.gif</label>
+                </div>
+                <br>
+                <div id="select_instruction" class="filters">
+                    <label><u>Left click</u> to single select. <u>Right click</u> to multi-select.</label>
+                </div>
+            </div>
+            <br><br>
+            <div id="download_button_div">
+                <div id="download_all_div" class="download_button_container">
+                    <button id="download_all_button" class="download_buttons btn btn-success">Download All</button>
+                </div>
+                <div id="download_selected_div" class="download_button_container">
+                    <button id="download_selected_button" class="download_buttons btn btn-info">Download Selected</button>
+                </div>
+            </div>
+            <br>
+        </div>
+        <div id="image_selection_div" class="row">
+            <div id="unselected_image_div" class="image_div col-6">
+                {% for image_url in image_urls %}
+                    <div id="unselected_image_container_{{loop.index}}"
+                    class="scraped_image_containers unselected_image_containers"
+                    style="background-image: url('{{image_url}}')">
+                        <img id="scraped_img_{{loop.index}}" class="scraped_images" src="{{image_url}}">
+                        <!-- <div id="button_container_{{loop.index}}" class="unselected_button_container button_container"></div> -->
+                    </div>
+                {% endfor %}
+            </div>
+            <div id="selected_image_div" class="image_div col-6">
+                {% for image_url in image_urls %}
+                    <div id="selected_image_container_{{loop.index}}"
+                    class="scraped_image_containers selected_image_containers"
+                    style="background-image: url('{{image_url}}')">
+                        <!-- <div id="button_container_{{loop.index}}" class="selected_button_container button_container"></div> -->
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </body>
+</html>
