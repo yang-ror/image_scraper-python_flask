@@ -18,7 +18,7 @@ Key features:
 
 **Live demo:**
 
-**Dockerhub:**
+**Dockerhub:** [https://hub.docker.com/repository/docker/yangror/image_scraper](https://hub.docker.com/repository/docker/yangror/image_scraper)
 
 ### Things to know:
   - In the backend, images are download by wget and stored in ./downloads/[a subdirectory named by current time]
