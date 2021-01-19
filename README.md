@@ -24,3 +24,7 @@ Key features:
   - In the backend, images are download by wget and stored in ./downloads/[a subdirectory named by current time]
   - Zip files are stored in ./status/
   - Auto-delete of above files is not implementated yet
+  - to run the project:
+    1. cd in the imageScraper
+    2. run the command: export FLASK_APP=app.py (on Windows: set FLASK_APP=app.py)
+    3. run: flask run
