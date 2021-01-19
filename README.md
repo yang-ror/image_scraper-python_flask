@@ -25,6 +25,6 @@ Key features:
   - Zip files are stored in ./status/
   - Auto-delete of above files is not implementated yet
   - to run the project:
-    1. cd into the imageScraper
+    1. cd into the imageScraper and start pipenv
     2. run the command: export FLASK_APP=app.py (on Windows: set FLASK_APP=app.py)
-    3. run: flask run
+    3. flask run --host 0.0.0.0
