@@ -16,7 +16,7 @@ Key features:
   - JQuery \ Bootstrap
 
 
-**Live demo:**
+**Live demo:** [http://ec2-3-129-148-1.us-east-2.compute.amazonaws.com:3500](http://ec2-3-129-148-1.us-east-2.compute.amazonaws.com:3500)
 
 **Dockerhub:** [https://hub.docker.com/repository/docker/yangror/image_scraper](https://hub.docker.com/repository/docker/yangror/image_scraper)
 
